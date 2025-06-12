@@ -1,3 +1,5 @@
+// src/App.jsx
+
 import React, { useState, useEffect } from "react";
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { Toaster } from "@/components/ui/toaster";
@@ -12,8 +14,7 @@ import AdminQuestionManagement from "@/pages/admin/AdminQuestionManagement";
 import AdminResultsView from "@/pages/admin/AdminResultsView";
 import AdminExamSettings from "@/pages/admin/AdminExamSettings";
 import { questions as initialQuestionsData } from "@/data/questions";
-
-import UserWaitingRoom from "@/pages/UserWaitingRoom"; // ✅ import halaman waiting
+import UserWaitingRoom from "@/pages/UserWaitingRoom";
 
 function App() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -24,14 +25,16 @@ function App() {
     return savedSettings
       ? JSON.parse(savedSettings)
       : {
-          duration_minutes: 120,
+          exam_name: "Ujian Kompetensi Dasar", // Tambahkan nama ujian default
+          duration_minutes: 60,
           passing_grade_percentage: 70,
           shuffle_questions: false,
-          detect_tab_switch: false,
+          detect_tab_switch: true,
         };
   });
   const [loading, setLoading] = useState(true);
 
+  // ... (useEffect dan fungsi lainnya tetap sama) ...
   useEffect(() => {
     document.title = "CAT JULUKANA";
     const savedUser = localStorage.getItem("currentUser");
@@ -98,7 +101,7 @@ function App() {
           title: "Login Peserta Berhasil",
           description: `Selamat datang, ${foundUser.fullName}!`,
         });
-        navigate("/waiting"); // ✅ diarahkan ke halaman waiting dulu
+        navigate("/waiting"); // diarahkan ke halaman waiting dulu
       }
     } else {
       toast({
@@ -111,7 +114,6 @@ function App() {
   };
 
   const handleLogout = () => {
-    const userRole = currentUser?.role;
     setCurrentUser(null);
     localStorage.removeItem("currentUser");
     toast({ title: "Logout Berhasil" });
@@ -153,12 +155,13 @@ function App() {
           }
         />
 
-        {/* ✅ Halaman waiting */}
+        {/* Halaman waiting */}
         <Route
           path="/waiting"
           element={
             currentUser && currentUser.role === "participant" ? (
-              <UserWaitingRoom />
+              // ✅ PERBAIKAN: Tambahkan props `user` dan `examSettings` di sini
+              <UserWaitingRoom user={currentUser} examSettings={examSettings} />
             ) : (
               <Navigate to="/" />
             )
