@@ -1,59 +1,73 @@
+import React, { useState, useEffect } from "react";
+import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import { Toaster } from "@/components/ui/toaster";
+import { useToast } from "@/components/ui/use-toast";
 
-import React, { useState, useEffect } from 'react';
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
-import { Toaster } from '@/components/ui/toaster';
-import { useToast } from '@/components/ui/use-toast';
+import UserCBT from "@/pages/UserCBT";
+import LoginScreen from "@/components/LoginScreen";
+import AdminLayout from "@/pages/admin/AdminLayout";
+import AdminDashboard from "@/pages/admin/AdminDashboard";
+import AdminUserManagement from "@/pages/admin/AdminUserManagement";
+import AdminQuestionManagement from "@/pages/admin/AdminQuestionManagement";
+import AdminResultsView from "@/pages/admin/AdminResultsView";
+import AdminExamSettings from "@/pages/admin/AdminExamSettings";
+import { questions as initialQuestionsData } from "@/data/questions";
 
-import UserCBT from '@/pages/UserCBT';
-import LoginScreen from '@/components/LoginScreen';
-import AdminLayout from '@/pages/admin/AdminLayout';
-import AdminDashboard from '@/pages/admin/AdminDashboard';
-import AdminUserManagement from '@/pages/admin/AdminUserManagement';
-import AdminQuestionManagement from '@/pages/admin/AdminQuestionManagement';
-import AdminResultsView from '@/pages/admin/AdminResultsView';
-import AdminExamSettings from '@/pages/admin/AdminExamSettings';
-import { questions as initialQuestionsData } from '@/data/questions';
-
+import UserWaitingRoom from "@/pages/UserWaitingRoom"; // ✅ import halaman waiting
 
 function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const { toast } = useToast();
   const navigate = useNavigate();
   const [examSettings, setExamSettings] = useState(() => {
-    const savedSettings = localStorage.getItem('examSettings');
-    return savedSettings ? JSON.parse(savedSettings) : {
-      duration_minutes: 120,
-      passing_grade_percentage: 70,
-      shuffle_questions: false,
-      detect_tab_switch: false,
-    };
+    const savedSettings = localStorage.getItem("examSettings");
+    return savedSettings
+      ? JSON.parse(savedSettings)
+      : {
+          duration_minutes: 120,
+          passing_grade_percentage: 70,
+          shuffle_questions: false,
+          detect_tab_switch: false,
+        };
   });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     document.title = "CAT JULUKANA";
-    const savedUser = localStorage.getItem('currentUser');
+    const savedUser = localStorage.getItem("currentUser");
     if (savedUser) {
       setCurrentUser(JSON.parse(savedUser));
     }
 
-    const registeredUsers = JSON.parse(localStorage.getItem('registeredUsers')) || [];
-    const adminNipDefault = "123456789012345678"; 
-    if (!registeredUsers.some(u => u.nip === adminNipDefault && u.role === 'admin')) {
-      const initialAdmin = { 
-        id: 'admin_default_julukana', 
-        fullName: 'Admin CAT JULUKANA', 
+    const registeredUsers =
+      JSON.parse(localStorage.getItem("registeredUsers")) || [];
+    const adminNipDefault = "123456789012345678";
+    if (
+      !registeredUsers.some(
+        (u) => u.nip === adminNipDefault && u.role === "admin"
+      )
+    ) {
+      const initialAdmin = {
+        id: "admin_default_julukana",
+        fullName: "Admin CAT JULUKANA",
         nip: adminNipDefault,
-        role: 'admin' 
+        role: "admin",
       };
-      
-      const otherUsers = registeredUsers.filter(u => !(u.nip === adminNipDefault && u.role === 'admin'));
-      localStorage.setItem('registeredUsers', JSON.stringify([initialAdmin, ...otherUsers]));
+      const otherUsers = registeredUsers.filter(
+        (u) => !(u.nip === adminNipDefault && u.role === "admin")
+      );
+      localStorage.setItem(
+        "registeredUsers",
+        JSON.stringify([initialAdmin, ...otherUsers])
+      );
     }
-    
-    const cbtQuestions = localStorage.getItem('cbtQuestions');
+
+    const cbtQuestions = localStorage.getItem("cbtQuestions");
     if (!cbtQuestions) {
-        localStorage.setItem('cbtQuestions', JSON.stringify(initialQuestionsData));
+      localStorage.setItem(
+        "cbtQuestions",
+        JSON.stringify(initialQuestionsData)
+      );
     }
 
     setLoading(false);
@@ -61,101 +75,143 @@ function App() {
 
   const handleLogin = (loginData) => {
     const { fullName, nip } = loginData;
-    const registeredUsers = JSON.parse(localStorage.getItem('registeredUsers')) || [];
-    
+    const registeredUsers =
+      JSON.parse(localStorage.getItem("registeredUsers")) || [];
+
     const foundUser = registeredUsers.find(
-      u => u.fullName.toLowerCase() === fullName.toLowerCase() && u.nip === nip
+      (u) =>
+        u.fullName.toLowerCase() === fullName.toLowerCase() && u.nip === nip
     );
 
     if (foundUser) {
       setCurrentUser(foundUser);
-      localStorage.setItem('currentUser', JSON.stringify(foundUser));
-      
-      if (foundUser.role === 'admin') {
+      localStorage.setItem("currentUser", JSON.stringify(foundUser));
+
+      if (foundUser.role === "admin") {
         toast({
           title: "Login Admin Berhasil",
           description: `Selamat datang, ${foundUser.fullName}!`,
         });
-        navigate('/admin/dashboard');
+        navigate("/admin/dashboard");
       } else {
         toast({
           title: "Login Peserta Berhasil",
           description: `Selamat datang, ${foundUser.fullName}!`,
         });
-        navigate('/cbt');
+        navigate("/waiting"); // ✅ diarahkan ke halaman waiting dulu
       }
     } else {
       toast({
         title: "Login Gagal",
-        description: "Nama Lengkap atau NIP tidak terdaftar/salah. Hubungi admin.",
+        description:
+          "Nama Lengkap atau NIP tidak terdaftar/salah. Hubungi admin.",
         variant: "destructive",
       });
     }
   };
-  
+
   const handleLogout = () => {
     const userRole = currentUser?.role;
     setCurrentUser(null);
-    localStorage.removeItem('currentUser');
+    localStorage.removeItem("currentUser");
     toast({ title: "Logout Berhasil" });
-    if (userRole === 'admin') {
-      navigate('/');
-    } else {
-      navigate('/');
-    }
+    navigate("/");
   };
 
   const updateExamSettings = (newSettings) => {
     setExamSettings(newSettings);
-    localStorage.setItem('examSettings', JSON.stringify(newSettings));
-    toast({ title: "Pengaturan Disimpan", description: "Pengaturan ujian berhasil diperbarui." });
+    localStorage.setItem("examSettings", JSON.stringify(newSettings));
+    toast({
+      title: "Pengaturan Disimpan",
+      description: "Pengaturan ujian berhasil diperbarui.",
+    });
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center h-screen bg-slate-900 text-white text-xl">Memuat Aplikasi CAT JULUKANA...</div>;
+    return (
+      <div className="flex items-center justify-center h-screen bg-slate-900 text-white text-xl">
+        Memuat Aplikasi CAT JULUKANA...
+      </div>
+    );
   }
 
   return (
     <>
       <Routes>
-        <Route 
-          path="/" 
+        <Route
+          path="/"
           element={
             currentUser ? (
-              currentUser.role === 'admin' ? <Navigate to="/admin/dashboard" /> : <Navigate to="/cbt" />
+              currentUser.role === "admin" ? (
+                <Navigate to="/admin/dashboard" />
+              ) : (
+                <Navigate to="/waiting" />
+              )
             ) : (
               <LoginScreen onLogin={handleLogin} />
             )
-          } 
+          }
         />
-        <Route 
-          path="/cbt" 
+
+        {/* ✅ Halaman waiting */}
+        <Route
+          path="/waiting"
           element={
-            currentUser && currentUser.role === 'participant' ? (
-              <UserCBT user={currentUser} onLogout={handleLogout} examSettings={examSettings} /> 
+            currentUser && currentUser.role === "participant" ? (
+              <UserWaitingRoom />
             ) : (
               <Navigate to="/" />
             )
-          } 
+          }
         />
-        <Route 
-          path="/admin" 
+
+        {/* Halaman CBT */}
+        <Route
+          path="/cbt"
           element={
-            currentUser && currentUser.role === 'admin' ? (
+            currentUser && currentUser.role === "participant" ? (
+              <UserCBT
+                user={currentUser}
+                onLogout={handleLogout}
+                examSettings={examSettings}
+              />
+            ) : (
+              <Navigate to="/" />
+            )
+          }
+        />
+
+        {/* Layout Admin */}
+        <Route
+          path="/admin"
+          element={
+            currentUser && currentUser.role === "admin" ? (
               <AdminLayout onAdminLogout={handleLogout} admin={currentUser} />
             ) : (
               <Navigate to="/" />
             )
           }
         >
-          <Route path="dashboard" element={<AdminDashboard adminUser={currentUser} />} />
+          <Route
+            path="dashboard"
+            element={<AdminDashboard adminUser={currentUser} />}
+          />
           <Route path="users" element={<AdminUserManagement />} />
           <Route path="questions" element={<AdminQuestionManagement />} />
           <Route path="results" element={<AdminResultsView />} />
-          <Route path="settings" element={<AdminExamSettings settings={examSettings} onUpdateSettings={updateExamSettings} />} />
+          <Route
+            path="settings"
+            element={
+              <AdminExamSettings
+                settings={examSettings}
+                onUpdateSettings={updateExamSettings}
+              />
+            }
+          />
           <Route index element={<Navigate to="dashboard" />} />
         </Route>
-        
+
+        {/* Catch-all */}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
       <Toaster />
