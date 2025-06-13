@@ -1,6 +1,7 @@
 # CAT JULUKANA - Sistem Ujian Online Berbasis Web
 
-![Screenshot Halaman Login](https://via.placeholder.com/800x450.png?text=Screenshot+Halaman+Login)
+![image](https://github.com/user-attachments/assets/2c8f5fba-170d-4b95-ac53-a809b1970a02)
+
 
 **CAT JULUKANA** adalah aplikasi ujian online (Computer-Assisted Test) modern yang dibangun menggunakan React.js dan Tailwind CSS. Aplikasi ini dirancang untuk menyediakan platform ujian yang aman, intuitif, dan mudah dikelola, baik untuk peserta maupun administrator.
 
