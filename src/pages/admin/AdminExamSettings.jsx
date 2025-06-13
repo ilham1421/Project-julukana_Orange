@@ -1,16 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch'; // Assuming you have or will create this
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { useToast } from '@/components/ui/use-toast';
-import { Save, Settings2, AlertCircle, Info } from 'lucide-react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Save, Settings2, AlertCircle, Info, Type } from "lucide-react";
+import { motion } from "framer-motion";
 
 const AdminExamSettings = ({ settings: initialSettings, onUpdateSettings }) => {
   const [settings, setSettings] = useState(initialSettings);
-  const { toast } = useToast();
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
@@ -18,31 +22,41 @@ const AdminExamSettings = ({ settings: initialSettings, onUpdateSettings }) => {
   }, [initialSettings]);
 
   const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setSettings(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' || type === 'switch' ? checked : (type === 'number' ? parseInt(value, 10) : value)
-    }));
+    const { name, value, type } = e.target;
+
+    // Validasi dan bersihkan error saat pengguna mengetik
     if (errors[name]) {
-        setErrors(prev => ({...prev, [name]: null}));
+      setErrors((prev) => ({ ...prev, [name]: null }));
     }
-  };
-  
-  // Separate handler for shadcn Switch as it provides value directly
-  const handleSwitchChange = (name, checked) => {
-    setSettings(prev => ({
+
+    setSettings((prev) => ({
       ...prev,
-      [name]: checked
+      [name]:
+        type === "number" ? (value === "" ? "" : parseInt(value, 10)) : value,
+    }));
+  };
+
+  const handleSwitchChange = (name, checked) => {
+    setSettings((prev) => ({
+      ...prev,
+      [name]: checked,
     }));
   };
 
   const validateSettings = () => {
     const newErrors = {};
-    if (settings.duration <= 0 || settings.duration > 1440) { // Max 24 hours
-        newErrors.duration = "Durasi harus antara 1 dan 1440 menit.";
+    if (!settings.exam_name || settings.exam_name.trim() === "") {
+      newErrors.exam_name = "Nama ujian tidak boleh kosong.";
     }
-    if (settings.passingGrade < 0 || settings.passingGrade > 100) {
-        newErrors.passingGrade = "Passing grade harus antara 0 dan 100.";
+    if (settings.duration_minutes <= 0 || settings.duration_minutes > 1440) {
+      newErrors.duration_minutes = "Durasi harus antara 1 dan 1440 menit.";
+    }
+    if (
+      settings.passing_grade_percentage < 0 ||
+      settings.passing_grade_percentage > 100
+    ) {
+      newErrors.passing_grade_percentage =
+        "Passing grade harus antara 0 dan 100.";
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -51,20 +65,11 @@ const AdminExamSettings = ({ settings: initialSettings, onUpdateSettings }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!validateSettings()) {
-        toast({
-            title: "Input Tidak Valid",
-            description: "Harap perbaiki error pada input sebelum menyimpan.",
-            variant: "destructive",
-        });
-        return;
+      // Tidak perlu toast di sini, error message sudah cukup jelas
+      return;
     }
     onUpdateSettings(settings);
-    toast({
-      title: "Pengaturan Disimpan",
-      description: "Pengaturan ujian berhasil diperbarui.",
-      className: "bg-green-500 text-white border-green-600",
-      icon: <Save className="h-5 w-5" />
-    });
+    // Toast dipindahkan ke App.jsx agar lebih konsisten
   };
 
   return (
@@ -76,62 +81,132 @@ const AdminExamSettings = ({ settings: initialSettings, onUpdateSettings }) => {
     >
       <div className="flex items-center space-x-3">
         <Settings2 className="h-10 w-10 text-sky-400" />
-        <h1 className="text-3xl font-bold text-sky-400">Pengaturan Ujian CBT</h1>
+        <h1 className="text-3xl font-bold text-sky-400">
+          Pengaturan Ujian CBT
+        </h1>
       </div>
 
       <Card className="border-slate-700 bg-slate-800 shadow-xl">
         <CardHeader>
-          <CardTitle className="text-sky-400">Konfigurasi Global Ujian</CardTitle>
+          <CardTitle className="text-sky-400">
+            Konfigurasi Global Ujian
+          </CardTitle>
           <CardDescription className="text-slate-400">
-            Atur parameter umum untuk semua sesi ujian CBT. Perubahan akan berlaku untuk ujian berikutnya.
+            Atur parameter umum untuk semua sesi ujian. Perubahan akan berlaku
+            untuk ujian berikutnya.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* ✅ Nama Ujian */}
+            <div className="space-y-2">
+              <Label htmlFor="exam_name" className="text-slate-300">
+                Nama Ujian
+              </Label>
+              <Input
+                id="exam_name"
+                name="exam_name"
+                type="text"
+                value={settings.exam_name || ""}
+                onChange={handleInputChange}
+                className={`bg-slate-700 border-slate-600 placeholder-slate-500 focus:ring-sky-500 focus:border-sky-500 ${
+                  errors.exam_name ? "border-red-500" : ""
+                }`}
+                placeholder="cth: Ujian Kompetensi Dasar"
+              />
+              {errors.exam_name && (
+                <p className="text-sm text-red-400 flex items-center gap-1">
+                  <AlertCircle size={16} />
+                  {errors.exam_name}
+                </p>
+              )}
+              <p className="text-xs text-slate-500 flex items-center gap-1">
+                <Type size={14} /> Nama ini akan ditampilkan di halaman ruang
+                tunggu peserta.
+              </p>
+            </div>
+
             {/* Durasi Ujian */}
             <div className="space-y-2">
-              <Label htmlFor="duration" className="text-slate-300">Durasi Ujian (menit)</Label>
+              <Label htmlFor="duration_minutes" className="text-slate-300">
+                Durasi Ujian (menit)
+              </Label>
               <Input
-                id="duration"
-                name="duration"
+                id="duration_minutes"
+                name="duration_minutes"
                 type="number"
-                value={settings.duration}
+                value={settings.duration_minutes}
                 onChange={handleInputChange}
-                className={`bg-slate-700 border-slate-600 placeholder-slate-500 focus:ring-sky-500 focus:border-sky-500 ${errors.duration ? 'border-red-500' : ''}`}
+                className={`bg-slate-700 border-slate-600 placeholder-slate-500 focus:ring-sky-500 focus:border-sky-500 ${
+                  errors.duration_minutes ? "border-red-500" : ""
+                }`}
                 min="1"
               />
-              {errors.duration && <p className="text-sm text-red-400 flex items-center gap-1"><AlertCircle size={16}/>{errors.duration}</p>}
-              <p className="text-xs text-slate-500 flex items-center gap-1"><Info size={14}/> Total waktu yang diberikan kepada peserta untuk menyelesaikan ujian.</p>
+              {errors.duration_minutes && (
+                <p className="text-sm text-red-400 flex items-center gap-1">
+                  <AlertCircle size={16} />
+                  {errors.duration_minutes}
+                </p>
+              )}
+              <p className="text-xs text-slate-500 flex items-center gap-1">
+                <Info size={14} /> Total waktu yang diberikan kepada peserta
+                untuk menyelesaikan ujian.
+              </p>
             </div>
 
             {/* Passing Grade */}
             <div className="space-y-2">
-              <Label htmlFor="passingGrade" className="text-slate-300">Passing Grade (%)</Label>
+              <Label
+                htmlFor="passing_grade_percentage"
+                className="text-slate-300"
+              >
+                Passing Grade (%)
+              </Label>
               <Input
-                id="passingGrade"
-                name="passingGrade"
+                id="passing_grade_percentage"
+                name="passing_grade_percentage"
                 type="number"
-                value={settings.passingGrade}
+                value={settings.passing_grade_percentage}
                 onChange={handleInputChange}
-                className={`bg-slate-700 border-slate-600 placeholder-slate-500 focus:ring-sky-500 focus:border-sky-500 ${errors.passingGrade ? 'border-red-500' : ''}`}
+                className={`bg-slate-700 border-slate-600 placeholder-slate-500 focus:ring-sky-500 focus:border-sky-500 ${
+                  errors.passing_grade_percentage ? "border-red-500" : ""
+                }`}
                 min="0"
                 max="100"
               />
-              {errors.passingGrade && <p className="text-sm text-red-400 flex items-center gap-1"><AlertCircle size={16}/>{errors.passingGrade}</p>}
-              <p className="text-xs text-slate-500 flex items-center gap-1"><Info size={14}/> Persentase nilai minimum yang dibutuhkan peserta untuk lulus ujian.</p>
+              {errors.passing_grade_percentage && (
+                <p className="text-sm text-red-400 flex items-center gap-1">
+                  <AlertCircle size={16} />
+                  {errors.passing_grade_percentage}
+                </p>
+              )}
+              <p className="text-xs text-slate-500 flex items-center gap-1">
+                <Info size={14} /> Persentase nilai minimum yang dibutuhkan
+                peserta untuk lulus.
+              </p>
             </div>
-            
+
             {/* Acak Soal */}
             <div className="flex items-center justify-between p-3 bg-slate-700/50 rounded-md border border-slate-600">
-                <div>
-                    <Label htmlFor="shuffleQuestions" className="text-slate-200 font-medium">Acak Urutan Soal</Label>
-                    <p className="text-xs text-slate-400 mt-1">Jika aktif, setiap peserta akan mendapatkan urutan soal yang berbeda.</p>
-                </div>
+              <div>
+                <Label
+                  htmlFor="shuffle_questions"
+                  className="text-slate-200 font-medium"
+                >
+                  Acak Urutan Soal
+                </Label>
+                <p className="text-xs text-slate-400 mt-1">
+                  Jika aktif, setiap peserta akan mendapatkan urutan soal yang
+                  berbeda.
+                </p>
+              </div>
               <Switch
-                id="shuffleQuestions"
-                name="shuffleQuestions"
-                checked={settings.shuffleQuestions}
-                onCheckedChange={(checked) => handleSwitchChange('shuffleQuestions', checked)}
+                id="shuffle_questions"
+                name="shuffle_questions"
+                checked={settings.shuffle_questions}
+                onCheckedChange={(checked) =>
+                  handleSwitchChange("shuffle_questions", checked)
+                }
                 className="data-[state=checked]:bg-sky-500 data-[state=unchecked]:bg-slate-600"
               />
             </div>
@@ -139,20 +214,33 @@ const AdminExamSettings = ({ settings: initialSettings, onUpdateSettings }) => {
             {/* Deteksi Pindah Tab */}
             <div className="flex items-center justify-between p-3 bg-slate-700/50 rounded-md border border-slate-600">
               <div>
-                <Label htmlFor="antiCheatingDetection" className="text-slate-200 font-medium">Deteksi Pindah Tab (Anti-Contek)</Label>
-                <p className="text-xs text-slate-400 mt-1">Jika aktif, ujian akan otomatis selesai jika peserta berpindah tab/window.</p>
+                <Label
+                  htmlFor="detect_tab_switch"
+                  className="text-slate-200 font-medium"
+                >
+                  Deteksi Kecurangan (Anti-Contek)
+                </Label>
+                <p className="text-xs text-slate-400 mt-1">
+                  Jika aktif, ujian akan dihentikan jika peserta keluar
+                  fullscreen atau pindah tab.
+                </p>
               </div>
               <Switch
-                id="antiCheatingDetection"
-                name="antiCheatingDetection"
-                checked={settings.antiCheatingDetection}
-                onCheckedChange={(checked) => handleSwitchChange('antiCheatingDetection', checked)}
+                id="detect_tab_switch"
+                name="detect_tab_switch"
+                checked={settings.detect_tab_switch}
+                onCheckedChange={(checked) =>
+                  handleSwitchChange("detect_tab_switch", checked)
+                }
                 className="data-[state=checked]:bg-sky-500 data-[state=unchecked]:bg-slate-600"
               />
             </div>
 
             <div className="pt-4">
-              <Button type="submit" className="w-full bg-sky-600 hover:bg-sky-700 text-white py-3 text-base">
+              <Button
+                type="submit"
+                className="w-full bg-sky-600 hover:bg-sky-700 text-white py-3 text-base"
+              >
                 <Save className="mr-2 h-5 w-5" /> Simpan Pengaturan
               </Button>
             </div>

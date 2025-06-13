@@ -5,7 +5,6 @@ import CBTHeader from "@/components/CBTHeader";
 import QuestionCard from "@/components/QuestionCard";
 import NavigationSidebar from "@/components/NavigationSidebar";
 import FinishDialog from "@/components/FinishDialog";
-import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import {
   Trophy,
@@ -47,30 +46,28 @@ function UserCBT({ user, onLogout, examSettings }) {
     title: "",
     description: "",
   });
+  const [isExamActive, setIsExamActive] = useState(false); // State untuk masa tenggang
 
-  const { toast } = useToast();
   const navigate = useNavigate();
   const sirenAudioRef = useRef(null);
+  const finalSirenAudioRef = useRef(null);
   const tabSwitchTimeoutRef = useRef(null);
 
   const currentQuestionData = useMemo(() => {
     return questions.find((q) => q.id === currentQuestionId);
   }, [currentQuestionId, questions]);
 
-  // Effect untuk inisialisasi ujian (dijalankan sekali)
+  // Effect untuk inisialisasi ujian
   useEffect(() => {
     if (!user || user.role !== "participant") {
       navigate("/");
       return;
     }
-
     setLoadingQuestions(true);
-
     const storedQuestions = localStorage.getItem("cbtQuestions");
     const questionsToUse = storedQuestions
       ? JSON.parse(storedQuestions)
       : initialQuestionsData;
-
     const formattedQuestions = questionsToUse.map((q) => ({
       ...q,
       id: q.id.toString(),
@@ -78,20 +75,24 @@ function UserCBT({ user, onLogout, examSettings }) {
     const finalQuestions = examSettings.shuffle_questions
       ? shuffleArray([...formattedQuestions])
       : formattedQuestions;
-
     setQuestions(finalQuestions);
     if (finalQuestions.length > 0) {
       setCurrentQuestionId(finalQuestions[0].id);
     }
-
     const savedAnswers = localStorage.getItem(`cbt-answers-${user.nip}`);
     if (savedAnswers) {
       setAnswers(JSON.parse(savedAnswers));
     }
-
     setTimeLeft(examSettings.duration_minutes * 60);
     setLoadingQuestions(false);
     enterFullscreen();
+
+    // Atur masa tenggang 5 detik sebelum deteksi fullscreen aktif
+    const gracePeriodTimer = setTimeout(() => {
+      setIsExamActive(true);
+    }, 5000);
+
+    return () => clearTimeout(gracePeriodTimer);
   }, [examSettings, user, navigate]);
 
   // Effect untuk timer ujian
@@ -111,29 +112,35 @@ function UserCBT({ user, onLogout, examSettings }) {
     }
   }, [timeLeft, isFinished, loadingQuestions]);
 
-  // Effect untuk menyimpan jawaban ke localStorage
+  // Effect untuk menyimpan jawaban
   useEffect(() => {
     if (user && Object.keys(answers).length > 0) {
       localStorage.setItem(`cbt-answers-${user.nip}`, JSON.stringify(answers));
     }
   }, [answers, user]);
 
-  // Effect untuk deteksi kecurangan (pindah tab & keluar fullscreen)
+  const playViolationSiren = () => {
+    if (finalSirenAudioRef.current && !isSirenMuted) {
+      finalSirenAudioRef.current.currentTime = 0;
+      finalSirenAudioRef.current.play().catch(console.error);
+    }
+  };
+
+  // Effect untuk deteksi kecurangan
   useEffect(() => {
-    if (isFinished) return;
+    if (isFinished || !isExamActive || !examSettings.detect_tab_switch) return;
 
     const handleVisibilityChange = () => {
-      if (document.hidden && examSettings.detect_tab_switch) {
+      if (document.hidden) {
         if (sirenAudioRef.current && !isSirenMuted)
           sirenAudioRef.current.play().catch(console.error);
-
         showModalNotification({
           title: "Peringatan!",
           description:
             "Anda terdeteksi berpindah tab. Ujian akan diakhiri otomatis dalam 3 detik.",
         });
-
         tabSwitchTimeoutRef.current = setTimeout(() => {
+          playViolationSiren();
           handleFinishExam({
             isViolation: true,
             reason: "Ujian dihentikan karena berpindah tab.",
@@ -146,11 +153,11 @@ function UserCBT({ user, onLogout, examSettings }) {
     };
 
     const handleFullscreenChange = () => {
-      if (document.fullscreenElement === null && !isFinished) {
+      if (document.fullscreenElement === null) {
         const newCount = fullscreenExitCount + 1;
         setFullscreenExitCount(newCount);
-
         if (newCount >= 2) {
+          playViolationSiren();
           handleFinishExam({
             isViolation: true,
             reason:
@@ -158,20 +165,22 @@ function UserCBT({ user, onLogout, examSettings }) {
           });
         } else {
           setFullscreenWarning(true);
+          if (sirenAudioRef.current && !isSirenMuted)
+            sirenAudioRef.current.play().catch(console.error);
+        }
+      } else {
+        if (sirenAudioRef.current) {
+          sirenAudioRef.current.pause();
+          sirenAudioRef.current.currentTime = 0;
         }
       }
     };
 
-    if (examSettings.detect_tab_switch)
-      document.addEventListener("visibilitychange", handleVisibilityChange);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     document.addEventListener("fullscreenchange", handleFullscreenChange);
 
     return () => {
-      if (examSettings.detect_tab_switch)
-        document.removeEventListener(
-          "visibilitychange",
-          handleVisibilityChange
-        );
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
       clearTimeout(tabSwitchTimeoutRef.current);
     };
@@ -180,22 +189,28 @@ function UserCBT({ user, onLogout, examSettings }) {
     isSirenMuted,
     fullscreenExitCount,
     examSettings.detect_tab_switch,
+    isExamActive,
   ]);
 
   const enterFullscreen = () => {
     const elem = document.documentElement;
     if (elem.requestFullscreen) {
-      elem.requestFullscreen().catch(() => setFullscreenWarning(true));
+      elem
+        .requestFullscreen()
+        .then(() => {
+          setFullscreenWarning(false);
+          if (sirenAudioRef.current) {
+            sirenAudioRef.current.pause();
+            sirenAudioRef.current.currentTime = 0;
+          }
+        })
+        .catch(() => setFullscreenWarning(true));
     }
   };
 
   const handleAnswerSelect = (questionId, answer) => {
+    if (answers[questionId] === answer) return;
     setAnswers((prev) => ({ ...prev, [questionId]: answer }));
-    toast({
-      description: `Jawaban untuk soal nomor ${
-        questions.findIndex((q) => q.id === questionId) + 1
-      } disimpan.`,
-    });
   };
 
   const showModalNotification = ({ title, description }) => {
@@ -204,17 +219,14 @@ function UserCBT({ user, onLogout, examSettings }) {
 
   const getCurrentQuestionIndex = () =>
     questions.findIndex((q) => q.id === currentQuestionId);
-
   const handleQuestionSelect = (questionIndex) => {
     if (questions[questionIndex])
       setCurrentQuestionId(questions[questionIndex].id);
   };
-
   const handlePrevious = () => {
     const currentIndex = getCurrentQuestionIndex();
     if (currentIndex > 0) setCurrentQuestionId(questions[currentIndex - 1].id);
   };
-
   const handleNext = () => {
     const currentIndex = getCurrentQuestionIndex();
     if (currentIndex < questions.length - 1)
@@ -226,10 +238,8 @@ function UserCBT({ user, onLogout, examSettings }) {
     reason = "Terima kasih telah mengikuti ujian.",
   } = {}) => {
     if (isFinished) return;
-
     setIsFinished(true);
     setShowFinishDialog(false);
-
     if (sirenAudioRef.current) sirenAudioRef.current.pause();
     clearTimeout(tabSwitchTimeoutRef.current);
     if (document.fullscreenElement) document.exitFullscreen();
@@ -262,11 +272,18 @@ function UserCBT({ user, onLogout, examSettings }) {
       JSON.stringify([...allResults, resultData])
     );
     localStorage.removeItem(`cbt-answers-${user.nip}`);
-
     showModalNotification({ title: "Ujian Selesai", description: reason });
   };
 
   const toggleSirenMute = () => setIsSirenMuted((prev) => !prev);
+
+  const handleLogoutAndStopSiren = () => {
+    if (finalSirenAudioRef.current) {
+      finalSirenAudioRef.current.pause();
+      finalSirenAudioRef.current.currentTime = 0;
+    }
+    onLogout();
+  };
 
   if (loadingQuestions) {
     return (
@@ -295,7 +312,7 @@ function UserCBT({ user, onLogout, examSettings }) {
               `Terima kasih, ${user.fullName}, telah menyelesaikan ujian.`}
           </p>
           <Button
-            onClick={onLogout}
+            onClick={handleLogoutAndStopSiren}
             className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 text-lg"
           >
             Kembali ke Halaman Login
@@ -324,6 +341,8 @@ function UserCBT({ user, onLogout, examSettings }) {
   return (
     <div className="min-h-screen bg-gray-50">
       <audio ref={sirenAudioRef} src="/siren.mp3" loop muted={isSirenMuted} />
+      <audio ref={finalSirenAudioRef} src="/siren.mp3" />
+
       <CBTHeader
         timeLeft={timeLeft}
         currentQuestion={getCurrentQuestionIndex() + 1}
@@ -344,10 +363,7 @@ function UserCBT({ user, onLogout, examSettings }) {
               {fullscreenExitCount} dari 2.
             </p>
             <Button
-              onClick={() => {
-                enterFullscreen();
-                setFullscreenWarning(false);
-              }}
+              onClick={enterFullscreen}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white"
             >
               Kembali ke Mode Fullscreen
@@ -397,7 +413,6 @@ function UserCBT({ user, onLogout, examSettings }) {
             </AnimatePresence>
           </div>
         </div>
-
         <NavigationSidebar
           currentQuestionIndex={getCurrentQuestionIndex()}
           questions={questions}
