@@ -1,5 +1,5 @@
 // src/pages/UserWaitingRoom.jsx
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,8 @@ import {
   Clock,
   BookOpen,
 } from "lucide-react";
+import useFetch from "../hooks/useFetch";
+import axiosFetch from "../lib/axios";
 
 // Palet warna yang terinspirasi dari logo
 const themeColors = {
@@ -19,18 +21,60 @@ const themeColors = {
   gold: "#FBBF24", // Kuning/Emas (text-amber-400)
 };
 
-const UserWaitingRoom = ({ user, examSettings }) => {
+const UserWaitingRoom = ({ user, refetch }) => {
   const navigate = useNavigate();
   const [isReady, setIsReady] = useState(false);
 
-  const handleStart = () => {
-    if (isReady) {
-      navigate("/cbt");
-    } else {
-      alert(
-        "Harap konfirmasi bahwa Anda telah membaca dan memahami semua aturan."
-      );
+  const { data: settings } = useFetch("/api/user/settings")
+  const examSettings = useMemo(() => {
+    if (settings == null) return {
+      exam_name: "Ujian Kompetensi Dasar", // Default exam name
+      duration_minutes: 60,
+      passing_grade_percentage: 70,
+      shuffle_questions: false,
+      detect_tab_switch: true,
     }
+
+    console.log("Exam settings fetched:", settings);
+
+    return {
+      exam_name: settings?.exam_name || "",
+      duration_minutes: settings?.duration_minutes != null ? parseInt(settings?.duration_minutes) : 60,
+      passing_grade_percentage: settings?.passing_grade_percentage != null ? parseInt(settings?.passing_grade_percentage) : 70,
+      shuffle_questions: settings?.shuffle_questions == "true" ,
+      detect_tab_switch: settings?.detect_tab_switch == "true",
+    }
+  }, [settings])
+
+  useEffect(() => {
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+
+    if (user.result == null) return
+
+    navigate("/cbt")
+
+    // checkExamStatus();
+  }, [user])
+
+
+  const handleStart = async () => {
+    if (!isReady) return alert("Harap konfirmasi bahwa Anda telah membaca dan memahami semua aturan sebelum memulai ujian.");
+    const feting = await axiosFetch({
+      url : "/api/user/mulai",
+      method: "GET",
+    })
+    if (feting.status >= 400) {
+      const errorMessage = feting.data.message || "Gagal memulai ujian";
+      alert(errorMessage);
+      return
+    }
+
+    await refetch();
+    
+    navigate("/cbt");
   };
 
   const rules = [
@@ -38,7 +82,8 @@ const UserWaitingRoom = ({ user, examSettings }) => {
       icon: <Signal className="text-green-500" />,
       text: "Pastikan Anda memiliki koneksi internet yang stabil selama ujian berlangsung.",
     },
-    {
+
+    examSettings.detect_tab_switch && {
       icon: <MonitorSmartphone className="text-red-500" />,
       text: "Dilarang keras membuka tab, window, atau aplikasi lain. Pelanggaran akan mengakhiri ujian secara otomatis.",
     },
@@ -50,7 +95,7 @@ const UserWaitingRoom = ({ user, examSettings }) => {
       icon: <Info style={{ color: themeColors.gold }} />,
       text: "Jika terjadi kendala teknis (misalnya, mati listrik), segera hubungi pengawas ujian untuk mendapatkan arahan.",
     },
-  ];
+  ].filter(Boolean);
 
   return (
     // Latar belakang sedikit kebiruan
@@ -141,10 +186,9 @@ const UserWaitingRoom = ({ user, examSettings }) => {
           <Button
             onClick={handleStart}
             className={`px-8 py-3 text-lg font-bold w-full md:w-auto transition-all duration-300 transform
-              ${
-                isReady
-                  ? "bg-blue-900 hover:bg-blue-800 text-white shadow-lg hover:shadow-xl hover:-translate-y-1"
-                  : "bg-gray-300 text-gray-500 cursor-not-allowed"
+              ${isReady
+                ? "bg-blue-900 hover:bg-blue-800 text-white shadow-lg hover:shadow-xl hover:-translate-y-1"
+                : "bg-gray-300 text-gray-500 cursor-not-allowed"
               }`}
             disabled={!isReady}
           >
