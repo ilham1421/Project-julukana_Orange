@@ -12,14 +12,35 @@ import {
 } from "@/components/ui/card";
 import { Save, Settings2, AlertCircle, Info, Type } from "lucide-react";
 import { motion } from "framer-motion";
+import useFetch from "../../hooks/useFetch";
 
 const AdminExamSettings = ({ settings: initialSettings, onUpdateSettings }) => {
-  const [settings, setSettings] = useState(initialSettings);
   const [errors, setErrors] = useState({});
 
+  const [settings, setSettings] = useState({
+    exam_name:  "",
+    duration_minutes:  60,
+    passing_grade_percentage:  70,
+    shuffle_questions:  false,
+    detect_tab_switch:  true,
+  })
+
+  const {
+    data : settingsBE, 
+    fetchData : refetch
+  } = useFetch("/api/admin/settings")
+
   useEffect(() => {
-    setSettings(initialSettings);
-  }, [initialSettings]);
+    if(settingsBE == null) return 
+    setSettings({
+      exam_name: settingsBE.exam_name || "",
+      duration_minutes:  settingsBE.duration_minutes != null ? parseInt(settingsBE.duration_minutes) : 60,
+      passing_grade_percentage: settingsBE.passing_grade_percentage != null ? parseInt(settingsBE.passing_grade_percentage) : 70,
+      shuffle_questions: settingsBE.shuffle_questions == "true",
+      detect_tab_switch: settingsBE.detect_tab_switch == "true",
+    });
+  }, [settingsBE])
+
 
   const handleInputChange = (e) => {
     const { name, value, type } = e.target;
@@ -68,6 +89,7 @@ const AdminExamSettings = ({ settings: initialSettings, onUpdateSettings }) => {
       // Tidak perlu toast di sini, error message sudah cukup jelas
       return;
     }
+
     onUpdateSettings(settings);
     // Toast dipindahkan ke App.jsx agar lebih konsisten
   };

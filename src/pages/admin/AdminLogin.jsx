@@ -11,19 +11,9 @@ const AdminLogin = () => {
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  const dummyAdmin = {
-    fullName: "Admin",
-    nip: "123456789012345678",
-  };
-
   const handleLogin = (e) => {
     e.preventDefault();
-    if (fullName === dummyAdmin.fullName && nip === dummyAdmin.nip) {
-      localStorage.setItem("admin", JSON.stringify(dummyAdmin));
-      navigate("/admin/dashboard");
-    } else {
-      setError("Nama lengkap atau NIP salah");
-    }
+    
   };
 
   return (

@@ -14,14 +14,14 @@ const QuestionCard = ({ question, selectedAnswer, onAnswerSelect }) => {
       <Card className="question-card border-0 shadow-xl">
         <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 border-b">
           <CardTitle className="text-lg font-semibold text-gray-800">
-            Soal No. {question.id}
+            Soal No. {question.no}
           </CardTitle>
         </CardHeader>
         <CardContent className="p-8">
           {/* Pertanyaan */}
           <div className="mb-8">
             <p className="text-lg leading-relaxed text-gray-800 font-medium">
-              {question.text}
+              {question.question}
             </p>
           </div>
 

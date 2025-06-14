@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,9 +10,11 @@ import { useToast } from '@/components/ui/use-toast';
 import { PlusCircle, Edit2, Trash2, FilePlus, AlertTriangle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { questions as defaultQuestions } from '@/data/questions';
+import useFetch from '../../hooks/useFetch';
+import axiosFetch from '../../lib/axios';
+import { convertAnswerToNumber } from '../../lib/utils';
 
 const AdminQuestionManagement = () => {
-  const [questions, setQuestions] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState({ id: null, text: '', options: ['', '', '', ''], correctAnswer: 'A' });
@@ -22,21 +24,59 @@ const AdminQuestionManagement = () => {
   const [deleteQuestion, setDeleteQuestion] = useState(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
-  useEffect(() => {
-    const storedQuestions = localStorage.getItem('cbtQuestions');
-    if (storedQuestions) {
-      setQuestions(JSON.parse(storedQuestions));
-    } else {
-      // Initialize with default questions if none in localStorage
-      localStorage.setItem('cbtQuestions', JSON.stringify(defaultQuestions));
-      setQuestions(defaultQuestions);
-    }
-  }, []);
+  const {
+    data: questions,
+    fetchData : refetch
+  } = useFetch("/api/admin/soal")
 
-  const saveQuestions = (updatedQuestions) => {
-    localStorage.setItem('cbtQuestions', JSON.stringify(updatedQuestions));
-    setQuestions(updatedQuestions);
-     // Dispatch a storage event so UserCBT can pick up changes if it's open in another tab/window
+
+  const saveQuestions = async (updatedQuestions) => {
+
+    const feting = await axiosFetch({
+      url: "/api/admin/soal",
+      method: "POST",
+      data: {
+        question: currentQuestion.text,
+        options: currentQuestion.options,
+        answer: convertAnswerToNumber(currentQuestion.correctAnswer),
+      }
+    })
+
+    if (feting.status >= 400) {
+      const errorMessage = feting.data.message || "Gagal menyimpan soal.";
+      toast({ title: "Error", description: errorMessage, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Sukses", description: "Soal berhasil disimpan." });
+    setIsModalOpen(false);
+    resetForm();
+    refetch()
+    // Dispatch a storage event so UserCBT can pick up changes if it's open in another tab/window
+    window.dispatchEvent(new Event('storage'));
+  };
+
+  const saveUpdateQuestions = async (updatedQuestions) => {
+
+    const feting = await axiosFetch({
+      url: "/api/admin/soal/"+currentQuestion.id,
+      method: "PUT",
+      data: {
+        question: currentQuestion.text,
+        options: currentQuestion.options,
+        answer: convertAnswerToNumber(currentQuestion.correctAnswer),
+      }
+    })
+
+    if (feting.status >= 400) {
+      const errorMessage = feting.data.message || "Gagal menyimpan soal.";
+      toast({ title: "Error", description: errorMessage, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Sukses", description: "Soal berhasil diupdate." });
+    setIsModalOpen(false);
+    resetForm();
+    refetch()
+    // Dispatch a storage event so UserCBT can pick up changes if it's open in another tab/window
     window.dispatchEvent(new Event('storage'));
   };
 
@@ -60,18 +100,14 @@ const AdminQuestionManagement = () => {
 
     let updatedQuestions;
     if (isEditMode) {
-      updatedQuestions = questions.map(q => q.id === currentQuestion.id ? currentQuestion : q);
-      toast({ title: "Sukses", description: "Soal berhasil diperbarui." });
+      saveUpdateQuestions(updatedQuestions);
     } else {
       // Find the highest existing ID to avoid collisions if some questions were deleted.
       const maxId = questions.reduce((max, q) => Math.max(max, typeof q.id === 'number' ? q.id : 0), 0);
       const newQuestion = { ...currentQuestion, id: maxId + 1 };
       updatedQuestions = [...questions, newQuestion];
-      toast({ title: "Sukses", description: "Soal baru berhasil ditambahkan." });
+      saveQuestions(updatedQuestions);
     }
-    saveQuestions(updatedQuestions);
-    setIsModalOpen(false);
-    resetForm();
   };
 
   const handleEdit = (question) => {
@@ -85,13 +121,26 @@ const AdminQuestionManagement = () => {
     setIsDeleteDialogOpen(true);
   };
 
-  const handleDelete = () => {
-    if(!deleteQuestion) return;
-    const updatedQuestions = questions.filter(q => q.id !== deleteQuestion.id);
-    saveQuestions(updatedQuestions);
-    toast({ title: "Sukses", description: `Soal "${deleteQuestion.text.substring(0,20)}..." berhasil dihapus.` });
+  const handleDelete = async() => {
+    if (!deleteQuestion) return;
+
+    const feting = await axiosFetch({
+      url: "/api/admin/soal/"+deleteQuestion.id,
+      method: "DELETE",
+    })
+
+    if (feting.status >= 400) {
+      const errorMessage = feting.data.message || "Gagal menyimpan soal.";
+      toast({ title: "Error", description: errorMessage, variant: "destructive" });
+      return;
+    }
+
+    toast({ title: "Sukses", description: `Soal "${deleteQuestion.question.substring(0, 20)}..." berhasil dihapus.` });
     setIsDeleteDialogOpen(false);
     setDeleteQuestion(null);
+
+    refetch()
+    
   };
 
   const resetForm = () => {
@@ -99,16 +148,20 @@ const AdminQuestionManagement = () => {
     setCurrentQuestion({ id: null, text: '', options: ['', '', '', ''], correctAnswer: 'A' });
   };
 
-  const filteredQuestions = questions.filter(q =>
-    q.text.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredQuestions = useMemo(() => {
+    if (questions == null) return []
+    console.log(questions)
+    return questions.filter(q =>
+      q.question.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [questions])
 
   return (
-    <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="space-y-6"
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="space-y-6"
     >
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-sky-400">Manajemen Soal</h1>
@@ -145,10 +198,16 @@ const AdminQuestionManagement = () => {
                 {filteredQuestions.map(q => (
                   <TableRow key={q.id} className="border-slate-700 hover:bg-slate-700/50">
                     <TableCell className="text-slate-300">{q.id}</TableCell>
-                    <TableCell className="font-medium text-slate-200 truncate max-w-xs">{q.text}</TableCell>
-                    <TableCell className="text-slate-300">{q.correctAnswer} ({q.options[q.correctAnswer.charCodeAt(0) - 65]})</TableCell>
+                    <TableCell className="font-medium text-slate-200 truncate max-w-xs">{q.question}</TableCell>
+                    {/* <TableCell className="text-slate-300">{q.answer} ({q.options[q.correctAnswer.charCodeAt(0) - 65]})</TableCell> */}
+                    <TableCell className="text-slate-300">  {q.options[q.answer]} </TableCell>
                     <TableCell className="text-right space-x-2">
-                      <Button variant="outline" size="sm" onClick={() => handleEdit(q)} className="text-yellow-400 border-yellow-400 hover:bg-yellow-400 hover:text-slate-900">
+                      <Button variant="outline" size="sm" onClick={() => handleEdit({
+                        id : q.id,
+                        text: q.question,
+                        options: q.options,
+                        correctAnswer: String.fromCharCode(65 + q.answer) 
+                      })} className="text-yellow-400 border-yellow-400 hover:bg-yellow-400 hover:text-slate-900">
                         <Edit2 className="h-4 w-4" />
                       </Button>
                       <Button variant="outline" size="sm" onClick={() => openDeleteDialog(q)} className="text-red-400 border-red-400 hover:bg-red-400 hover:text-white">
@@ -170,7 +229,7 @@ const AdminQuestionManagement = () => {
         <DialogContent className="bg-slate-800 border-slate-700 text-white sm:max-w-[625px]">
           <DialogHeader>
             <DialogTitle className="text-sky-400">{isEditMode ? 'Edit Soal' : 'Tambah Soal Baru'}</DialogTitle>
-             <DialogDescription className="text-slate-400">
+            <DialogDescription className="text-slate-400">
               {isEditMode ? 'Ubah detail soal.' : 'Masukkan detail untuk soal baru.'}
             </DialogDescription>
           </DialogHeader>
@@ -190,13 +249,13 @@ const AdminQuestionManagement = () => {
             })}
             <div>
               <Label htmlFor="correctAnswer" className="text-slate-300">Jawaban Benar</Label>
-              <select 
-                id="correctAnswer" name="correctAnswer" 
-                value={currentQuestion.correctAnswer} 
-                onChange={handleInputChange} 
+              <select
+                id="correctAnswer" name="correctAnswer"
+                value={currentQuestion.correctAnswer}
+                onChange={handleInputChange}
                 required
                 className="w-full p-2 rounded-md bg-slate-700 border-slate-600 text-white focus:ring-sky-500 focus:border-sky-500"
-                >
+              >
                 <option value="A">A</option>
                 <option value="B">B</option>
                 <option value="C">C</option>
@@ -211,12 +270,12 @@ const AdminQuestionManagement = () => {
         </DialogContent>
       </Dialog>
 
-       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent className="bg-slate-800 border-slate-700 text-white">
           <DialogHeader>
             <DialogTitle className="text-red-500 flex items-center"><AlertTriangle className="mr-2 h-6 w-6 text-red-500" />Konfirmasi Hapus</DialogTitle>
-             <DialogDescription className="text-slate-400">
-                Apakah Anda yakin ingin menghapus soal: <span className="font-semibold text-sky-400">"{deleteQuestion?.text.substring(0,50)}..."</span>? Tindakan ini tidak dapat diurungkan.
+            <DialogDescription className="text-slate-400">
+              Apakah Anda yakin ingin menghapus soal: <span className="font-semibold text-sky-400">"{deleteQuestion?.question.substring(0, 50)}..."</span>? Tindakan ini tidak dapat diurungkan.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="mt-4">
