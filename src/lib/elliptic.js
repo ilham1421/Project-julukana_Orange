@@ -6,6 +6,7 @@ const ec = new EC('secp256k1');
 
 
 export function getPubKeyFromPrivate(privateKey) {
+
     // Create a key object from the private key
     const key = ec.keyFromPrivate(privateKey);
 
@@ -23,8 +24,7 @@ export function generateKeyPair() {
     // Get public and private keys in hex format
     const publicKey = key.getPublic('hex');
     const privateKey = key.getPrivate('hex');
-
-
+    
     return {
         publicKey,
         privateKey

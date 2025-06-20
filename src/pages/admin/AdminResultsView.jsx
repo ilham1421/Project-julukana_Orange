@@ -20,13 +20,13 @@ const AdminResultsView = () => {
 
   const {
     data: fetchExamResults,
-    fetchData: fetchResults,
+    refetch: fetchResults,
     loading: loadingResultsFetch
   } = useFetch("/api/admin/user-results")
 
   const {
     data: fetchQuestions,
-    fetchData: fetchQuestionsData,
+    refetch: fetchQuestionsData,
     loading: loadingQuestions
   } = useFetch("/api/admin/soal?limit=1000")
 
@@ -42,7 +42,7 @@ const AdminResultsView = () => {
   const questionsMap = useMemo(() => {
     if (!fetchQuestions) return {};
     const map = {};
-    fetchQuestions.forEach(question => {
+    fetchQuestions?.soals?.forEach(question => {
       map[question.id] = question.answer;
     });
 
