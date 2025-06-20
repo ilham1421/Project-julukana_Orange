@@ -1,37 +1,98 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea'; // Create this
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription, DialogClose } from '@/components/ui/dialog';
-import { useToast } from '@/components/ui/use-toast';
-import { PlusCircle, Edit2, Trash2, FilePlus, AlertTriangle } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { questions as defaultQuestions } from '@/data/questions';
-import useFetch from '../../hooks/useFetch';
-import axiosFetch from '../../lib/axios';
-import { convertAnswerToNumber } from '../../lib/utils';
+import React, { useState, useEffect, useMemo } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { useToast } from "@/components/ui/use-toast";
+import {
+  FilePlus,
+  Edit2,
+  Trash2,
+  AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
+  RefreshCw, // Impor icon Refresh
+} from "lucide-react";
+import { motion } from "framer-motion";
+import useFetch from "../../hooks/useFetch";
+import axiosFetch from "../../lib/axios";
+import { convertAnswerToNumber } from "../../lib/utils";
+
+// Tentukan berapa item yang ditampilkan per halaman
+const ITEMS_PER_PAGE = 10;
 
 const AdminQuestionManagement = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [currentQuestion, setCurrentQuestion] = useState({ id: null, text: '', options: ['', '', '', ''], correctAnswer: 'A' });
-  const [searchTerm, setSearchTerm] = useState('');
+  const [currentQuestion, setCurrentQuestion] = useState({
+    id: null,
+    text: "",
+    options: ["", "", "", ""],
+    correctAnswer: "A",
+  });
+  const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
 
   const [deleteQuestion, setDeleteQuestion] = useState(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
+  // --- PERUBAHAN 1: State untuk pagination tetap sama ---
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // --- PERUBAHAN 2: Memanggil useFetch dengan parameter untuk pagination ---
   const {
-    data: questions,
-    fetchData : refetch
-  } = useFetch("/api/admin/soal")
+    data: responseData,
+    loading: loadingQuestions, // Menggunakan state loading dari hook
+    error: errorQuestions,
+    refetch,
+  } = useFetch("/api/admin/soal", {
+    page: currentPage,
+    limit: ITEMS_PER_PAGE,
+  });
 
+  // --- PERUBAHAN 3: Ekstrak data dan totalPages dari respons API ---
+  const questions = useMemo(() => responseData?.data ?? [], [responseData]);
+  const totalPages = useMemo(
+    () => responseData?.totalPages ?? 1,
+    [responseData]
+  );
 
-  const saveQuestions = async (updatedQuestions) => {
+  // Handle error dari fetch
+  useEffect(() => {
+    if (errorQuestions) {
+      toast({
+        title: "Gagal Memuat Soal",
+        description:
+          errorQuestions.message || "Tidak dapat terhubung ke server.",
+        variant: "destructive",
+      });
+    }
+  }, [errorQuestions, toast]);
 
+  const saveQuestions = async () => {
     const feting = await axiosFetch({
       url: "/api/admin/soal",
       method: "POST",
@@ -39,122 +100,139 @@ const AdminQuestionManagement = () => {
         question: currentQuestion.text,
         options: currentQuestion.options,
         answer: convertAnswerToNumber(currentQuestion.correctAnswer),
-      }
-    })
+      },
+    });
 
     if (feting.status >= 400) {
-      const errorMessage = feting.data.message || "Gagal menyimpan soal.";
-      toast({ title: "Error", description: errorMessage, variant: "destructive" });
+      const errorMessage = feting.data?.message || "Gagal menyimpan soal.";
+      toast({
+        title: "Gagal",
+        description: errorMessage,
+        variant: "destructive",
+      });
       return;
     }
     toast({ title: "Sukses", description: "Soal berhasil disimpan." });
     setIsModalOpen(false);
     resetForm();
-    refetch()
-    // Dispatch a storage event so UserCBT can pick up changes if it's open in another tab/window
-    window.dispatchEvent(new Event('storage'));
+    refetch();
   };
 
-  const saveUpdateQuestions = async (updatedQuestions) => {
-
+  const saveUpdateQuestions = async () => {
     const feting = await axiosFetch({
-      url: "/api/admin/soal/"+currentQuestion.id,
+      url: "/api/admin/soal/" + currentQuestion.id,
       method: "PUT",
       data: {
         question: currentQuestion.text,
         options: currentQuestion.options,
         answer: convertAnswerToNumber(currentQuestion.correctAnswer),
-      }
-    })
+      },
+    });
 
     if (feting.status >= 400) {
-      const errorMessage = feting.data.message || "Gagal menyimpan soal.";
-      toast({ title: "Error", description: errorMessage, variant: "destructive" });
+      const errorMessage = feting.data.message || "Gagal memperbarui soal.";
+      toast({
+        title: "Gagal",
+        description: errorMessage,
+        variant: "destructive",
+      });
       return;
     }
-    toast({ title: "Sukses", description: "Soal berhasil diupdate." });
+    toast({ title: "Sukses", description: "Soal berhasil diperbarui." });
     setIsModalOpen(false);
     resetForm();
-    refetch()
-    // Dispatch a storage event so UserCBT can pick up changes if it's open in another tab/window
-    window.dispatchEvent(new Event('storage'));
+    refetch();
   };
 
+  const handleDelete = async () => {
+    if (!deleteQuestion) return;
+
+    const feting = await axiosFetch({
+      url: "/api/admin/soal/" + deleteQuestion.id,
+      method: "DELETE",
+    });
+
+    if (feting.status >= 400) {
+      const errorMessage = feting.data.message || "Gagal menghapus soal.";
+      toast({
+        title: "Gagal",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    toast({ title: "Sukses", description: `Soal berhasil dihapus.` });
+    setIsDeleteDialogOpen(false);
+    setDeleteQuestion(null);
+    refetch();
+  };
+
+  // Fungsi lain tidak ada perubahan
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setCurrentQuestion(prev => ({ ...prev, [name]: value }));
+    setCurrentQuestion((prev) => ({ ...prev, [name]: value }));
   };
-
   const handleOptionChange = (index, value) => {
     const newOptions = [...currentQuestion.options];
     newOptions[index] = value;
-    setCurrentQuestion(prev => ({ ...prev, options: newOptions }));
+    setCurrentQuestion((prev) => ({ ...prev, options: newOptions }));
   };
-
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!currentQuestion.text || currentQuestion.options.some(opt => !opt) || !currentQuestion.correctAnswer) {
-      toast({ title: "Error", description: "Semua field wajib diisi.", variant: "destructive" });
+    if (
+      !currentQuestion.text ||
+      currentQuestion.options.some((opt) => !opt) ||
+      !currentQuestion.correctAnswer
+    ) {
+      toast({
+        title: "Gagal",
+        description: "Semua field wajib diisi.",
+        variant: "destructive",
+      });
       return;
     }
-
-    let updatedQuestions;
     if (isEditMode) {
-      saveUpdateQuestions(updatedQuestions);
+      saveUpdateQuestions();
     } else {
-      // Find the highest existing ID to avoid collisions if some questions were deleted.
-      const maxId = questions.reduce((max, q) => Math.max(max, typeof q.id === 'number' ? q.id : 0), 0);
-      const newQuestion = { ...currentQuestion, id: maxId + 1 };
-      updatedQuestions = [...questions, newQuestion];
-      saveQuestions(updatedQuestions);
+      saveQuestions();
     }
   };
-
   const handleEdit = (question) => {
     setIsEditMode(true);
     setCurrentQuestion(question);
     setIsModalOpen(true);
   };
-
   const openDeleteDialog = (question) => {
     setDeleteQuestion(question);
     setIsDeleteDialogOpen(true);
   };
-
-  const handleDelete = async() => {
-    if (!deleteQuestion) return;
-
-    const feting = await axiosFetch({
-      url: "/api/admin/soal/"+deleteQuestion.id,
-      method: "DELETE",
-    })
-
-    if (feting.status >= 400) {
-      const errorMessage = feting.data.message || "Gagal menyimpan soal.";
-      toast({ title: "Error", description: errorMessage, variant: "destructive" });
-      return;
-    }
-
-    toast({ title: "Sukses", description: `Soal "${deleteQuestion.question.substring(0, 20)}..." berhasil dihapus.` });
-    setIsDeleteDialogOpen(false);
-    setDeleteQuestion(null);
-
-    refetch()
-    
-  };
-
   const resetForm = () => {
     setIsEditMode(false);
-    setCurrentQuestion({ id: null, text: '', options: ['', '', '', ''], correctAnswer: 'A' });
+    setCurrentQuestion({
+      id: null,
+      text: "",
+      options: ["", "", "", ""],
+      correctAnswer: "A",
+    });
   };
 
+  // --- PERUBAHAN 4: Filtering sekarang hanya terjadi pada data per halaman ---
   const filteredQuestions = useMemo(() => {
-    if (questions == null) return []
-    console.log(questions)
-    return questions.filter(q =>
+    if (!Array.isArray(questions)) return [];
+    return questions.filter((q) =>
       q.question.toLowerCase().includes(searchTerm.toLowerCase())
     );
-  }, [questions])
+  }, [questions, searchTerm]);
+
+  // --- PERUBAHAN 5: Logika pagination client-side (slice) DIHAPUS ---
+  // Kita langsung menggunakan data yang sudah dipaginasi dari server.
+
+  const handlePageChange = (page) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
 
   return (
     <motion.div
@@ -165,9 +243,32 @@ const AdminQuestionManagement = () => {
     >
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-sky-400">Manajemen Soal</h1>
-        <Button onClick={() => { resetForm(); setIsModalOpen(true); }} className="bg-emerald-600 hover:bg-emerald-700 text-white">
-          <FilePlus className="mr-2 h-5 w-5" /> Tambah Soal
-        </Button>
+        <div>
+          {" "}
+          {/* Pembungkus untuk tombol-tombol header */}
+          <Button
+            onClick={() => refetch()}
+            variant="outline"
+            className="mr-2 text-sky-400 border-sky-400 hover:bg-sky-400 hover:text-slate-900"
+            disabled={loadingQuestions}
+          >
+            <RefreshCw
+              className={`mr-2 h-4 w-4 ${
+                loadingQuestions ? "animate-spin" : ""
+              }`}
+            />
+            Refresh
+          </Button>
+          <Button
+            onClick={() => {
+              resetForm();
+              setIsModalOpen(true);
+            }}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            <FilePlus className="mr-2 h-5 w-5" /> Tambah Soal
+          </Button>
+        </div>
       </div>
 
       <Input
@@ -181,76 +282,176 @@ const AdminQuestionManagement = () => {
       <Card className="border-slate-700 bg-slate-800 shadow-xl">
         <CardHeader>
           <CardTitle className="text-sky-400">Daftar Soal Ujian</CardTitle>
-          <CardDescription className="text-slate-400">Kelola semua soal untuk CBT.</CardDescription>
+          <CardDescription className="text-slate-400">
+            Kelola semua soal untuk CBT.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="border-slate-700 hover:bg-slate-700/50">
-                  <TableHead className="text-slate-300 w-[5%]">ID</TableHead>
-                  <TableHead className="text-slate-300 w-[50%]">Teks Soal</TableHead>
-                  <TableHead className="text-slate-300">Jawaban Benar</TableHead>
-                  <TableHead className="text-slate-300 text-right">Aksi</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredQuestions.map(q => (
-                  <TableRow key={q.id} className="border-slate-700 hover:bg-slate-700/50">
-                    <TableCell className="text-slate-300">{q.id}</TableCell>
-                    <TableCell className="font-medium text-slate-200 truncate max-w-xs">{q.question}</TableCell>
-                    {/* <TableCell className="text-slate-300">{q.answer} ({q.options[q.correctAnswer.charCodeAt(0) - 65]})</TableCell> */}
-                    <TableCell className="text-slate-300">  {q.options[q.answer]} </TableCell>
-                    <TableCell className="text-right space-x-2">
-                      <Button variant="outline" size="sm" onClick={() => handleEdit({
-                        id : q.id,
-                        text: q.question,
-                        options: q.options,
-                        correctAnswer: String.fromCharCode(65 + q.answer) 
-                      })} className="text-yellow-400 border-yellow-400 hover:bg-yellow-400 hover:text-slate-900">
-                        <Edit2 className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => openDeleteDialog(q)} className="text-red-400 border-red-400 hover:bg-red-400 hover:text-white">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
+            {loadingQuestions && filteredQuestions.length === 0 ? (
+              <div className="flex justify-center items-center py-16">
+                <RefreshCw className="h-8 w-8 text-sky-400 animate-spin" />
+                <p className="ml-3 text-slate-300">Memuat data soal...</p>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-slate-700 hover:bg-slate-700/50">
+                    <TableHead className="text-slate-300 w-[55%]">
+                      Teks Soal
+                    </TableHead>
+                    <TableHead className="text-slate-300">
+                      Jawaban Benar
+                    </TableHead>
+                    <TableHead className="text-slate-300 text-right">
+                      Aksi
+                    </TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {/* --- PERUBAHAN 6: Render `filteredQuestions` langsung --- */}
+                  {filteredQuestions.map((q) => (
+                    <TableRow
+                      key={q.id}
+                      className="border-slate-700 hover:bg-slate-700/50"
+                    >
+                      <TableCell className="font-medium text-slate-200 truncate max-w-xs">
+                        {q.question}
+                      </TableCell>
+                      <TableCell className="text-slate-300">
+                        {q.options[q.answer]}
+                      </TableCell>
+                      <TableCell className="text-right space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            handleEdit({
+                              id: q.id,
+                              text: q.question,
+                              options: q.options,
+                              correctAnswer: String.fromCharCode(65 + q.answer),
+                            })
+                          }
+                          className="text-yellow-400 border-yellow-400 hover:bg-yellow-400 hover:text-slate-900"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openDeleteDialog(q)}
+                          className="text-red-400 border-red-400 hover:bg-red-400 hover:text-white"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </div>
-          {filteredQuestions.length === 0 && (
-            <p className="text-center text-slate-400 py-8">Tidak ada soal ditemukan.</p>
+          {!loadingQuestions && filteredQuestions.length === 0 && (
+            <p className="text-center text-slate-400 py-8">
+              Tidak ada soal ditemukan.
+            </p>
+          )}
+
+          {/* === KONTROL PAGINATION TIDAK BERUBAH, SUDAH BENAR === */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center space-x-4 pt-6 text-sm text-slate-300">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1 || loadingQuestions}
+                className="h-8 w-8 text-purple-400 hover:bg-slate-700 disabled:text-slate-600 disabled:bg-transparent"
+                aria-label="Halaman Sebelumnya"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+
+              <div className="flex items-center space-x-3" aria-live="polite">
+                <span className="flex h-8 w-8 items-center justify-center rounded-md border border-purple-400/50 bg-slate-800 text-purple-300 font-medium">
+                  {currentPage}
+                </span>
+                <span className="text-slate-400">dari {totalPages}</span>
+              </div>
+
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages || loadingQuestions}
+                className="h-8 w-8 text-purple-400 hover:bg-slate-700 disabled:text-slate-600 disabled:bg-transparent"
+                aria-label="Halaman Berikutnya"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </Button>
+            </div>
           )}
         </CardContent>
       </Card>
 
+      {/* Dialogs tidak berubah */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="bg-slate-800 border-slate-700 text-white sm:max-w-[625px]">
           <DialogHeader>
-            <DialogTitle className="text-sky-400">{isEditMode ? 'Edit Soal' : 'Tambah Soal Baru'}</DialogTitle>
+            <DialogTitle className="text-sky-400">
+              {isEditMode ? "Edit Soal" : "Tambah Soal Baru"}
+            </DialogTitle>
             <DialogDescription className="text-slate-400">
-              {isEditMode ? 'Ubah detail soal.' : 'Masukkan detail untuk soal baru.'}
+              {isEditMode
+                ? "Ubah detail soal."
+                : "Masukkan detail untuk soal baru."}
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
+          <form
+            onSubmit={handleSubmit}
+            className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-2"
+          >
             <div>
-              <Label htmlFor="text" className="text-slate-300">Teks Soal</Label>
-              <Textarea id="text" name="text" value={currentQuestion.text} onChange={handleInputChange} required className="bg-slate-700 border-slate-600 placeholder-slate-500 focus:ring-sky-500 focus:border-sky-500 min-h-[100px]" />
+              <Label htmlFor="text" className="text-slate-300">
+                Teks Soal
+              </Label>
+              <Textarea
+                id="text"
+                name="text"
+                value={currentQuestion.text}
+                onChange={handleInputChange}
+                required
+                className="bg-slate-700 border-slate-600 placeholder-slate-500 focus:ring-sky-500 focus:border-sky-500 min-h-[100px]"
+              />
             </div>
             {currentQuestion.options.map((option, index) => {
               const optionLetter = String.fromCharCode(65 + index);
               return (
                 <div key={index}>
-                  <Label htmlFor={`option${optionLetter}`} className="text-slate-300">Opsi {optionLetter}</Label>
-                  <Input id={`option${optionLetter}`} name={`option${optionLetter}`} value={option} onChange={(e) => handleOptionChange(index, e.target.value)} required className="bg-slate-700 border-slate-600 placeholder-slate-500 focus:ring-sky-500 focus:border-sky-500" />
+                  <Label
+                    htmlFor={`option${optionLetter}`}
+                    className="text-slate-300"
+                  >
+                    Opsi {optionLetter}
+                  </Label>
+                  <Input
+                    id={`option${optionLetter}`}
+                    name={`option${optionLetter}`}
+                    value={option}
+                    onChange={(e) => handleOptionChange(index, e.target.value)}
+                    required
+                    className="bg-slate-700 border-slate-600 placeholder-slate-500 focus:ring-sky-500 focus:border-sky-500"
+                  />
                 </div>
               );
             })}
             <div>
-              <Label htmlFor="correctAnswer" className="text-slate-300">Jawaban Benar</Label>
+              <Label htmlFor="correctAnswer" className="text-slate-300">
+                Jawaban Benar
+              </Label>
               <select
-                id="correctAnswer" name="correctAnswer"
+                id="correctAnswer"
+                name="correctAnswer"
                 value={currentQuestion.correctAnswer}
                 onChange={handleInputChange}
                 required
@@ -263,24 +464,53 @@ const AdminQuestionManagement = () => {
               </select>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)} className="text-slate-300 border-slate-600 hover:bg-slate-700">Batal</Button>
-              <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white">{isEditMode ? 'Simpan Perubahan' : 'Tambah Soal'}</Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsModalOpen(false)}
+                className="text-slate-300 border-slate-600 hover:bg-slate-700"
+              >
+                Batal
+              </Button>
+              <Button
+                type="submit"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                {isEditMode ? "Simpan Perubahan" : "Tambah Soal"}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
-
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent className="bg-slate-800 border-slate-700 text-white">
           <DialogHeader>
-            <DialogTitle className="text-red-500 flex items-center"><AlertTriangle className="mr-2 h-6 w-6 text-red-500" />Konfirmasi Hapus</DialogTitle>
+            <DialogTitle className="text-red-500 flex items-center">
+              <AlertTriangle className="mr-2 h-6 w-6 text-red-500" />
+              Konfirmasi Hapus
+            </DialogTitle>
             <DialogDescription className="text-slate-400">
-              Apakah Anda yakin ingin menghapus soal: <span className="font-semibold text-sky-400">"{deleteQuestion?.question.substring(0, 50)}..."</span>? Tindakan ini tidak dapat diurungkan.
+              Apakah Anda yakin ingin menghapus soal:{" "}
+              <span className="font-semibold text-sky-400">
+                "{deleteQuestion?.question.substring(0, 50)}..."
+              </span>
+              ? Tindakan ini tidak dapat diurungkan.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="mt-4">
-            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)} className="text-slate-300 border-slate-600 hover:bg-slate-700">Batal</Button>
-            <Button onClick={handleDelete} className="bg-red-600 hover:bg-red-700 text-white">Ya, Hapus</Button>
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteDialogOpen(false)}
+              className="text-slate-300 border-slate-600 hover:bg-slate-700"
+            >
+              Batal
+            </Button>
+            <Button
+              onClick={handleDelete}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Ya, Hapus
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
