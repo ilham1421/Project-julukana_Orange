@@ -61,14 +61,17 @@ const AdminUserManagement = () => {
     loading: loadingUsers,
     error: errorUsersData,
     refetch: fetchUsers,
-  } = useFetch("/api/admin/users", {
-    page: currentPage,
-    limit: USERS_PER_PAGE,
-  });
+  } = useFetch("/api/admin/users?"+new URLSearchParams({
+    page : currentPage,
+    limit : USERS_PER_PAGE,
+    search: searchTerm,
+  }));
 
-  const users = responseData?.data ?? [];
-  const totalPages = responseData?.totalPages ?? 1;
-  const totalUsers = responseData?.totalUsers ?? 0;
+  const users = responseData?.users ?? [];
+  const totalPages = useMemo(() => {
+    if (responseData == null) return 0;
+    return Math.ceil(responseData.total / USERS_PER_PAGE);
+  }, [responseData]);
 
   useEffect(() => {
     if (errorUsersData) {
@@ -224,12 +227,10 @@ const AdminUserManagement = () => {
   };
   const filteredUsers = useMemo(() => {
     if (!Array.isArray(users)) return [];
-    return users.filter(
-      (user) =>
-        (user.name?.toLowerCase() ?? "").includes(searchTerm.toLowerCase()) ||
-        (user.nip?.toLowerCase() ?? "").includes(searchTerm.toLowerCase())
-    );
-  }, [users, searchTerm]);
+    console.log(users)
+    return users
+  }, [users]);
+
   const handleNextPage = () => {
     if (currentPage < totalPages) setCurrentPage(currentPage + 1);
   };
@@ -283,13 +284,13 @@ const AdminUserManagement = () => {
         <CardHeader>
           <CardTitle className="text-sky-400">Daftar Pengguna</CardTitle>
           <CardDescription className="text-slate-400">
-            Kelola akun peserta dan admin. Total: {totalUsers} pengguna
+            Kelola akun peserta dan admin. Total: {responseData?.total ?? 0} pengguna
             terdaftar.
           </CardDescription>
         </CardHeader>
         <CardContent>
           {/* Logika tabel tidak ada perubahan */}
-          {loadingUsers && users.length === 0 ? (
+          {loadingUsers  ? (
             <div className="flex justify-center items-center py-8">
               <RefreshCw className="h-8 w-8 text-sky-400 animate-spin" />
               <p className="ml-2 text-slate-300">Memuat pengguna...</p>

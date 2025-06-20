@@ -68,15 +68,18 @@ const AdminQuestionManagement = () => {
     loading: loadingQuestions, // Menggunakan state loading dari hook
     error: errorQuestions,
     refetch,
-  } = useFetch("/api/admin/soal", {
+  } = useFetch("/api/admin/soal?" + new URLSearchParams({
     page: currentPage,
     limit: ITEMS_PER_PAGE,
-  });
+  }));
 
   // --- PERUBAHAN 3: Ekstrak data dan totalPages dari respons API ---
-  const questions = useMemo(() => responseData?.data ?? [], [responseData]);
+  const questions = useMemo(() => responseData?.soals ?? [], [responseData]);
   const totalPages = useMemo(
-    () => responseData?.totalPages ?? 1,
+    () => {
+      if (!responseData || !responseData.total) return 1;
+      return Math.ceil(responseData.total / ITEMS_PER_PAGE);
+    },
     [responseData]
   );
 
@@ -253,9 +256,8 @@ const AdminQuestionManagement = () => {
             disabled={loadingQuestions}
           >
             <RefreshCw
-              className={`mr-2 h-4 w-4 ${
-                loadingQuestions ? "animate-spin" : ""
-              }`}
+              className={`mr-2 h-4 w-4 ${loadingQuestions ? "animate-spin" : ""
+                }`}
             />
             Refresh
           </Button>
