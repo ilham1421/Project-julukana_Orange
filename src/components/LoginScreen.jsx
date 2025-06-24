@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { User, KeyRound, AlertCircle } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import logoBeaCukai from "../data/logo_beaCukai.png";
 
 const LoginScreen = ({ onLogin }) => {
   const [fullName, setFullName] = useState("");
@@ -19,8 +20,7 @@ const LoginScreen = ({ onLogin }) => {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
-  const logoUrl =
-    "https://storage.googleapis.com/hostinger-horizons-assets-prod/011c2c6d-27ef-4f8d-9fed-8b3e9faf55e0/8ffe6ebc4a34f0f2bae8a9f061210870.png";
+  const logoUrl = logoBeaCukai;
 
   const validateForm = () => {
     const newErrors = {};

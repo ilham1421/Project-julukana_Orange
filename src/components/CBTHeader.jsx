@@ -3,6 +3,7 @@ import React from 'react';
 import { Clock, User, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
+import logoBeaCukai from "../data/logo_beaCukai.png";
 
 const CBTHeader = ({ timeLeft, currentQuestion, totalQuestions, participantName, onLogout }) => {
   const formatTime = (seconds) => {
@@ -13,7 +14,7 @@ const CBTHeader = ({ timeLeft, currentQuestion, totalQuestions, participantName,
   };
 
   const progressPercentage = totalQuestions > 0 ? (currentQuestion / totalQuestions) * 100 : 0;
-  const logoUrl = "https://storage.googleapis.com/hostinger-horizons-assets-prod/011c2c6d-27ef-4f8d-9fed-8b3e9faf55e0/8ffe6ebc4a34f0f2bae8a9f061210870.png";
+  const logoUrl = logoBeaCukai;
 
   return (
     <motion.header 

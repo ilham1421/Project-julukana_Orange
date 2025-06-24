@@ -34,7 +34,7 @@ import {
   AlertTriangle,
   ChevronLeft,
   ChevronRight,
-  RefreshCw, // Impor icon Refresh
+  RefreshCw,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import useFetch from "../../hooks/useFetch";
@@ -45,6 +45,7 @@ import { convertAnswerToNumber } from "../../lib/utils";
 const ITEMS_PER_PAGE = 10;
 
 const AdminQuestionManagement = () => {
+  // --- SEMUA STATE DAN HOOKS TETAP SAMA DARI KODE ASLI ANDA ---
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState({
@@ -55,33 +56,29 @@ const AdminQuestionManagement = () => {
   });
   const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
-
   const [deleteQuestion, setDeleteQuestion] = useState(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-
-  // --- PERUBAHAN 1: State untuk pagination tetap sama ---
   const [currentPage, setCurrentPage] = useState(1);
 
-  // --- PERUBAHAN 2: Memanggil useFetch dengan parameter untuk pagination ---
+  // --- LOGIKA FETCH TIDAK DIUBAH (TETAP CLIENT-SIDE SEARCH) ---
   const {
     data: responseData,
-    loading: loadingQuestions, // Menggunakan state loading dari hook
+    loading: loadingQuestions,
     error: errorQuestions,
     refetch,
-  } = useFetch("/api/admin/soal?" + new URLSearchParams({
-    page: currentPage,
-    limit: ITEMS_PER_PAGE,
-  }));
-
-  // --- PERUBAHAN 3: Ekstrak data dan totalPages dari respons API ---
-  const questions = useMemo(() => responseData?.soals ?? [], [responseData]);
-  const totalPages = useMemo(
-    () => {
-      if (!responseData || !responseData.total) return 1;
-      return Math.ceil(responseData.total / ITEMS_PER_PAGE);
-    },
-    [responseData]
+  } = useFetch(
+    "/api/admin/soal?" +
+      new URLSearchParams({
+        page: currentPage,
+        limit: ITEMS_PER_PAGE,
+      })
   );
+
+  const questions = useMemo(() => responseData?.soals ?? [], [responseData]);
+  const totalPages = useMemo(() => {
+    if (!responseData || !responseData.total) return 1;
+    return Math.ceil(responseData.total / ITEMS_PER_PAGE);
+  }, [responseData]);
 
   // Handle error dari fetch
   useEffect(() => {
@@ -95,6 +92,7 @@ const AdminQuestionManagement = () => {
     }
   }, [errorQuestions, toast]);
 
+  // --- SEMUA FUNGSI HELPER TETAP SAMA, TIDAK ADA PERUBAHAN ---
   const saveQuestions = async () => {
     const feting = await axiosFetch({
       url: "/api/admin/soal",
@@ -171,7 +169,6 @@ const AdminQuestionManagement = () => {
     refetch();
   };
 
-  // Fungsi lain tidak ada perubahan
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setCurrentQuestion((prev) => ({ ...prev, [name]: value }));
@@ -220,7 +217,7 @@ const AdminQuestionManagement = () => {
     });
   };
 
-  // --- PERUBAHAN 4: Filtering sekarang hanya terjadi pada data per halaman ---
+  // --- LOGIKA FILTER CLIENT-SIDE TIDAK DIUBAH ---
   const filteredQuestions = useMemo(() => {
     if (!Array.isArray(questions)) return [];
     return questions.filter((q) =>
@@ -228,9 +225,7 @@ const AdminQuestionManagement = () => {
     );
   }, [questions, searchTerm]);
 
-  // --- PERUBAHAN 5: Logika pagination client-side (slice) DIHAPUS ---
-  // Kita langsung menggunakan data yang sudah dipaginasi dari server.
-
+  // --- FUNGSI PAGINATION TIDAK DIUBAH ---
   const handlePageChange = (page) => {
     if (page >= 1 && page <= totalPages) {
       setCurrentPage(page);
@@ -244,6 +239,7 @@ const AdminQuestionManagement = () => {
       transition={{ duration: 0.3 }}
       className="space-y-6"
     >
+      {/* Header tidak berubah */}
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-sky-400">Manajemen Soal</h1>
         <div>
@@ -256,8 +252,9 @@ const AdminQuestionManagement = () => {
             disabled={loadingQuestions}
           >
             <RefreshCw
-              className={`mr-2 h-4 w-4 ${loadingQuestions ? "animate-spin" : ""
-                }`}
+              className={`mr-2 h-4 w-4 ${
+                loadingQuestions ? "animate-spin" : ""
+              }`}
             />
             Refresh
           </Button>
@@ -273,6 +270,7 @@ const AdminQuestionManagement = () => {
         </div>
       </div>
 
+      {/* Input search tidak berubah */}
       <Input
         type="text"
         placeholder="Cari soal..."
@@ -297,6 +295,7 @@ const AdminQuestionManagement = () => {
               </div>
             ) : (
               <Table>
+                {/* Tabel tidak berubah */}
                 <TableHeader>
                   <TableRow className="border-slate-700 hover:bg-slate-700/50">
                     <TableHead className="text-slate-300 w-[55%]">
@@ -311,7 +310,6 @@ const AdminQuestionManagement = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {/* --- PERUBAHAN 6: Render `filteredQuestions` langsung --- */}
                   {filteredQuestions.map((q) => (
                     <TableRow
                       key={q.id}
@@ -360,39 +358,48 @@ const AdminQuestionManagement = () => {
             </p>
           )}
 
-          {/* === KONTROL PAGINATION TIDAK BERUBAH, SUDAH BENAR === */}
+          {/* ========================================================= */}
+          {/* ### HANYA BLOK INI YANG DIUBAH ### */}
+          {/* ========================================================= */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-center space-x-4 pt-6 text-sm text-slate-300">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => handlePageChange(currentPage - 1)}
-                disabled={currentPage === 1 || loadingQuestions}
-                className="h-8 w-8 text-purple-400 hover:bg-slate-700 disabled:text-slate-600 disabled:bg-transparent"
-                aria-label="Halaman Sebelumnya"
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </Button>
-
-              <div className="flex items-center space-x-3" aria-live="polite">
-                <span className="flex h-8 w-8 items-center justify-center rounded-md border border-purple-400/50 bg-slate-800 text-purple-300 font-medium">
+            <div className="flex items-center justify-end space-x-6 py-4 mt-4">
+              <span className="text-sm text-slate-400">
+                Halaman{" "}
+                <strong className="font-medium text-slate-100">
                   {currentPage}
-                </span>
-                <span className="text-slate-400">dari {totalPages}</span>
+                </strong>{" "}
+                dari{" "}
+                <strong className="font-medium text-slate-100">
+                  {totalPages}
+                </strong>
+              </span>
+              <div className="space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1 || loadingQuestions}
+                  className="bg-transparent text-amber-400 border-amber-400/40 hover:bg-amber-400 hover:text-slate-900 hover:border-amber-400 disabled:opacity-30 disabled:border-slate-600 disabled:text-slate-600"
+                >
+                  <ChevronLeft className="h-4 w-4 mr-2" />
+                  Sebelumnya
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages || loadingQuestions}
+                  className="bg-transparent text-amber-400 border-amber-400/40 hover:bg-amber-400 hover:text-slate-900 hover:border-amber-400 disabled:opacity-30 disabled:border-slate-600 disabled:text-slate-600"
+                >
+                  Selanjutnya
+                  <ChevronRight className="h-4 w-4 ml-2" />
+                </Button>
               </div>
-
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => handlePageChange(currentPage + 1)}
-                disabled={currentPage === totalPages || loadingQuestions}
-                className="h-8 w-8 text-purple-400 hover:bg-slate-700 disabled:text-slate-600 disabled:bg-transparent"
-                aria-label="Halaman Berikutnya"
-              >
-                <ChevronRight className="h-5 w-5" />
-              </Button>
             </div>
           )}
+          {/* ========================================================= */}
+          {/* ### AKHIR BLOK YANG DIUBAH ### */}
+          {/* ========================================================= */}
         </CardContent>
       </Card>
 
