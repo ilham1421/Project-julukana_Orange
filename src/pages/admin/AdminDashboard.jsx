@@ -17,8 +17,19 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button"; // Added import
 import logoBeaCukai from "../../data/logo_beaCukai.png";
+import useFetch from "../../hooks/useFetch";
 
 const AdminDashboard = () => {
+
+  const {
+    data : dashboardData,
+    loading: dashboardLoading,
+    error: dashboardError,
+    refetch: dashboardRefetch,
+  } = useFetch("/api/admin/dashboard")
+
+
+
   const cardVariants = {
     hidden: { opacity: 0, y: 20 },
     visible: { opacity: 1, y: 0, transition: { staggerChildren: 0.1 } },
@@ -143,22 +154,36 @@ const AdminDashboard = () => {
           <div>
             <p className="text-3xl font-bold text-blue-600">
               {
-                (JSON.parse(localStorage.getItem("users")) || []).filter(
-                  (u) => u.role === "participant"
-                ).length
+                dashboardLoading ? (
+                  <span className="animate-pulse">Loading...</span>
+                ) : dashboardError ? (
+                  <span className="text-red-500">{dashboardError}</span>
+                ) : dashboardData?.totalUsers || 0
               }
             </p>
             <p className="text-gray-500">Peserta Terdaftar</p>
           </div>
           <div>
             <p className="text-3xl font-bold text-green-600">
-              {(JSON.parse(localStorage.getItem("questions")) || []).length}
+              {
+                dashboardLoading ? (
+                  <span className="animate-pulse">Loading...</span>
+                ) : dashboardError ? (
+                  <span className="text-red-500">{dashboardError}</span>
+                ) : dashboardData?.totalSoals || 0
+              }
             </p>
             <p className="text-gray-500">Jumlah Soal</p>
           </div>
           <div>
             <p className="text-3xl font-bold text-yellow-600">
-              {(JSON.parse(localStorage.getItem("examResults")) || []).length}
+              {
+                dashboardLoading ? (
+                  <span className="animate-pulse">Loading...</span>
+                ) : dashboardError ? (
+                  <span className="text-red-500">{dashboardError}</span>
+                ) : dashboardData?.totalResults || 0
+              }
             </p>
             <p className="text-gray-500">Ujian Selesai</p>
           </div>
